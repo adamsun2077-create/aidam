@@ -1,0 +1,33 @@
+{
+  "version": "0.1.0",
+  "description": "Exact list of original reusable source files; no private workspace exports.",
+  "files": [
+    ".gitignore",
+    "LICENSE",
+    "README.md",
+    "aidam.py",
+    "docs/architecture.md",
+    "docs/connectors.md",
+    "docs/privacy.md",
+    "docs/quickstart.md",
+    "docs/skills.md",
+    "docs/walkthrough.md",
+    "template/AGENTS.md",
+    "template/CLAUDE.md",
+    "template/START-HERE.md",
+    "template/.gitignore",
+    "template/system/AIDAM.md",
+    "template/system/memory/MEMORY.md",
+    "template/system/bridges/README.md",
+    "template/system/skills/aidam-core/SKILL.md",
+    "template/system/skills/ceo/SKILL.md",
+    "template/system/skills/vibecoder/SKILL.md",
+    "template/system/skills/data-analyst/SKILL.md",
+    "template/system/skills/verification-before-completion/SKILL.md",
+    "template/operations/docs/templates/context.md",
+    "template/operations/docs/templates/session.md",
+    "template/operations/docs/templates/bridge.md",
+    "template/operations/docs/templates/handoff.md",
+    "tests/test_aidam.py"
+  ]
+}

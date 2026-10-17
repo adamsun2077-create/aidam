@@ -1,0 +1,27 @@
+# Private workspace: share reusable templates from Starter, never this whole tree.
+.DS_Store
+__pycache__/
+*.pyc
+.env
+.env.*
+*.pem
+*.key
+*token*
+*credentials*
+.obsidian/
+.venv/
+node_modules/
+dist/
+active/
+archive/
+tmp/
+cloud/
+system/local.json
+system/memory/
+system/runtime/
+system/bridges/
+operations/log/
+operations/research/
+operations/output/
+operations/product/
+operations/docs/private/
