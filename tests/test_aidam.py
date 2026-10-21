@@ -141,6 +141,67 @@ class AidamTests(unittest.TestCase):
         self.run_cli("share", "--source", release, "--output", output, ok=False)
         self.assertEqual(output.read_text(), "keep")
 
+    def test_recent_reports_summary_limit_and_is_read_only(self):
+        self.init()
+        from datetime import datetime
+        folder = self.workspace / "system/memory/sessions" / datetime.now().astimezone().strftime("%Y-%m-%d")
+        folder.mkdir(parents=True, exist_ok=True)
+        for index in range(2):
+            (folder / (str(index) + ".md")).write_text("# [codex] 会话记录\n\n验证通过；待补样本", encoding="utf-8")
+        before = {p: p.read_bytes() for p in self.workspace.rglob("*") if p.is_file()}
+        data = json.loads(self.run_cli("context", "recent", self.workspace, "--limit", "1").stdout)
+        self.assertEqual(data["total"], 2)
+        self.assertTrue(data["truncated"])
+        self.assertIn("待补样本", data["records"][0]["summary"])
+        after = {p: p.read_bytes() for p in self.workspace.rglob("*") if p.is_file()}
+        self.assertEqual(before, after)
+
+    def test_recent_excludes_old_future_and_invalid_dates(self):
+        self.init()
+        for day in ("2000-01-01", "2999-01-01", "not-a-date"):
+            folder = self.workspace / "system/memory/sessions" / day
+            folder.mkdir(parents=True)
+            (folder / "note.md").write_text("excluded")
+        data = json.loads(self.run_cli("context", "recent", self.workspace).stdout)
+        self.assertEqual(data["total"], 0)
+        self.run_cli("context", "recent", self.workspace, "--days", "0", ok=False)
+
+    def test_assemble_returns_all_candidates_and_no_match(self):
+        self.init()
+        for name in ("物流甲", "物流乙"):
+            self.run_cli("project", self.workspace, "--area", "clients", "--name", name)
+        data = json.loads(self.run_cli("context", "assemble", self.workspace, "--task", "物流").stdout)
+        self.assertEqual(data["total"], 2)
+        self.assertEqual(set(data["records"][0]), {"path"})
+        none = json.loads(self.run_cli("context", "assemble", self.workspace, "--task", "不存在").stdout)
+        self.assertEqual(none["records"], [])
+        self.run_cli("context", "assemble", self.workspace, "--task", " ", ok=False)
+
+    def test_context_rejects_symlink_escape(self):
+        self.init()
+        outside = self.base / "outside.md"
+        outside.write_text("private data")
+        self.run_cli("project", self.workspace, "--area", "clients", "--name", "Demo")
+        target = self.workspace / "active/clients/Demo/.context.md"
+        target.unlink()
+        target.symlink_to(outside)
+        result = self.run_cli("context", "assemble", self.workspace, "--task", "Demo", ok=False)
+        self.assertNotIn("private data", result.stdout + result.stderr)
+
+    def test_clean_share_can_initialize_and_use_installed_context(self):
+        archive = self.base / "share.zip"
+        self.run_cli("share", "--output", archive)
+        unpack = self.base / "unpacked"
+        with zipfile.ZipFile(archive) as package:
+            package.extractall(unpack)
+        subprocess.run([sys.executable, str(unpack / "aidam.py"), "init", str(self.workspace)], check=True, capture_output=True)
+        installed = self.workspace / "system/tools/aidam.py"
+        for args in (("doctor",), ("context", "recent")):
+            result = subprocess.run([sys.executable, str(installed), *args, str(self.workspace)], capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse((self.workspace / "system/skills/ceo").exists())
+        self.assertEqual(json.loads((self.workspace / "system/local.json").read_text())["version"], "0.2.0")
+
 
 if __name__ == "__main__":
     unittest.main()

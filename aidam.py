@@ -10,24 +10,21 @@ import sys
 import uuid
 import zipfile
 from contextlib import contextmanager
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
-VERSION = "0.1.0"
+VERSION = "0.2.0"
 SOURCE = Path(__file__).resolve().parent
 AREAS = ("projects", "data", "content", "clients", "skills")
 # Exact release boundary. Adding files requires changing this list and the manifest.
 RELEASE_FILES = (
     ".gitignore", "LICENSE", "README.md", "aidam.py",
-    "docs/architecture.md", "docs/connectors.md", "docs/privacy.md",
+    "CHANGELOG.md", "docs/architecture.md", "docs/connectors.md", "docs/privacy.md",
     "docs/quickstart.md", "docs/skills.md", "docs/walkthrough.md",
     "template/AGENTS.md", "template/CLAUDE.md", "template/START-HERE.md",
     "template/.gitignore", "template/system/AIDAM.md",
     "template/system/memory/MEMORY.md", "template/system/bridges/README.md",
     "template/system/skills/aidam-core/SKILL.md",
-    "template/system/skills/ceo/SKILL.md",
-    "template/system/skills/vibecoder/SKILL.md",
-    "template/system/skills/data-analyst/SKILL.md",
     "template/system/skills/verification-before-completion/SKILL.md",
     "template/operations/docs/templates/context.md",
     "template/operations/docs/templates/session.md",
@@ -218,6 +215,48 @@ def project(args):
     print("请同步更新所属区域的 .context.md 状态表。")
 
 
+def context(args):
+    """Read only navigation; summaries never replace original evidence."""
+    root = workspace(args.path)
+    records = []
+    if args.action == "recent":
+        cutoff = datetime.now().astimezone().date() - timedelta(days=args.days - 1)
+        folder = inside(root, "system/memory/sessions")
+        for file in sorted(folder.glob("*/*.md"), reverse=True):
+            try:
+                day = datetime.strptime(file.parent.name, "%Y-%m-%d").date()
+            except ValueError:
+                continue
+            if not cutoff <= day <= datetime.now().astimezone().date():
+                continue
+            safe = inside(root, file.relative_to(root))
+            lines = safe.read_text(encoding="utf-8").splitlines()
+            summary = " · ".join(line.lstrip("# ") for line in lines if line.strip())[:240]
+            records.append({"path": file.relative_to(root).as_posix(), "summary": summary})
+    else:
+        query = args.task.strip().casefold()
+        if not query:
+            raise ValueError("任务关键词不能为空")
+        for area in AREAS:
+            folder = inside(root, "active/" + area)
+            for file in sorted(folder.glob("*/.context.md")):
+                safe = inside(root, file.relative_to(root))
+                # Literal keywords and project names, not semantic relevance scores.
+                if query in (file.parent.name + " " + safe.read_text(encoding="utf-8")).casefold():
+                    records.append({"path": file.relative_to(root).as_posix()})
+    print(json.dumps({"records": records[:args.limit], "total": len(records),
+                      "truncated": len(records) > args.limit,
+                      "warning": "只读导航；需回读相关原文。关键词未命中时扩大检索；多候选不得自动认定。"},
+                     ensure_ascii=False, indent=2))
+
+
+def positive_int(value):
+    number = int(value)
+    if number < 1:
+        raise argparse.ArgumentTypeError("必须是正整数")
+    return number
+
+
 def privacy_findings(content):
     # Split marker literals so scanner tests and scanner source contain no real credentials.
     patterns = {
@@ -302,6 +341,16 @@ def main():
     command.add_argument("--id", required=True)
     command.add_argument("--summary", required=True)
     command.set_defaults(handler=session_finish)
+    navigation = commands.add_parser("context").add_subparsers(dest="action", required=True)
+    for action in ("recent", "assemble"):
+        command = navigation.add_parser(action)
+        command.add_argument("path")
+        command.add_argument("--limit", type=positive_int, default=20)
+        if action == "recent":
+            command.add_argument("--days", type=positive_int, default=3)
+        else:
+            command.add_argument("--task", required=True)
+        command.set_defaults(handler=context)
     command = commands.add_parser("share")
     command.add_argument("--source", default=str(SOURCE))
     command.add_argument("--output", required=True)

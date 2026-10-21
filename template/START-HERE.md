@@ -2,7 +2,7 @@
 
 你已经有了一个空白的本地 AI 工作区。
 
-1. 阅读 `system/AIDAM.md`，了解目录、角色和会话规则。
+1. 阅读 `system/AIDAM.md`，了解目录、任务执行和会话规则。
 2. 填写 `system/local.json` 的 owner，在 `system/memory/MEMORY.md` 写入少量长期偏好。不要填写任何凭据。
 3. 让你的 AI 先读 `AGENTS.md`、规则源和核心技能，然后一起创建第一个项目。
 4. 本地检查：`python3 system/tools/aidam.py doctor .`。
